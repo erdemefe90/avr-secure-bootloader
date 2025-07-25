@@ -3,7 +3,6 @@ Debug/
 Release/
 .vscode/
 VSIX/
-tiny-AES-c/
 __pycache__/
 Project Backups/
 *.workspace
