@@ -162,7 +162,6 @@ class MyFlasherApp(QDialog):
             lb_compile_time=self.ui.lb_file_compile_time
         )
 
-        self.load_defaults()
         self.setWindowTitle("AVR Flasher")
         
         self.baudrates = [2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400]
@@ -277,35 +276,6 @@ class MyFlasherApp(QDialog):
             else:
                 self.log("Failed to process image file.", level="error")
 
-    def load_defaults(self):
-        default_key_path = "X:/Erdem_Efe/Projects/AVR_Bootloader_FW/Tools/private_key.pem"
-        default_img_path = "X:/Erdem_Efe/Projects/AVR_Bootloader_FW/App/Debug/App_encrypted.bin"
-
-        self.ui.ln_key.setText(default_key_path)
-        self.ui.ln_img.setText(default_img_path)
-
-        if os.path.exists(default_key_path):
-            try:
-                self.private_key = extract.load_private_key_from_file(default_key_path)
-                self.log("Private key loaded successfully (default).", level="info")
-            except Exception as e:
-                self.log(f"Failed to load default private key: {e}", level="error", popup=True)
-
-        if os.path.exists(default_img_path):
-            if not self.private_key:
-                self.log("Private key is not loaded. Cannot process image.", level="warning", popup=True)
-                return
-
-            encrypted_data, header, aes128_iv = extract.process_image_file(default_img_path, self.private_key, self.log)
-            if encrypted_data:
-                self.encrypted_data = encrypted_data
-                self.header = header
-                self.iv_aes128 = aes128_iv
-                self.log("Image file loaded and processed (default).", level="info")
-                self.image_size = extract.parse_image_header(header, self.file_labels)
-            else:
-                self.log("Failed to process default image file.", level="error", popup=True)
-
     def parse_packet(self, packet: bytes):
         if len(packet) < 5:
             raise ValueError("Packet too short")
@@ -335,7 +305,6 @@ class MyFlasherApp(QDialog):
 
             if cmd == BOOT_CMD_HEADER:
                 self.header = data
-                print(utils.hexdump(data))
                 extract.parse_image_header(data, self.dev_labels) 
                 if self.iv_aes128 and self.image_size:
                     payload = self.image_size.to_bytes(4, 'little') + self.iv_aes128

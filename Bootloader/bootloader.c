@@ -10,15 +10,15 @@
 #include "bootloader.h"
 #include "uart.h"
 
-#define BOOT_CMD_HEADER		    0xb0
-#define BOOT_CMD_INFO		    0xb1
-#define BOOT_CMD_FLASH	        0xb3
-#define BOOT_CMD_ACK		    0xb5
-#define BOOT_CMD_NACK		    0xb6
-#define BOOT_CMD_RESET		    0xb7
+#define BOOT_CMD_HEADER         0xb0
+#define BOOT_CMD_INFO           0xb1
+#define BOOT_CMD_FLASH          0xb3
+#define BOOT_CMD_ACK            0xb5
+#define BOOT_CMD_NACK           0xb6
+#define BOOT_CMD_RESET          0xb7
 
 #define MAX_PAYLOAD_LEN         (UART_TX_BUFFER_LEN - (PKT_HEADER_LEN + CRC_LEN))
-#define PKT_HEADER_LEN		    0x03 // STX + CMD + LEN
+#define PKT_HEADER_LEN          0x03 // STX + CMD + LEN
 
 typedef struct
 {
@@ -95,7 +95,7 @@ static uint16_t calculate_flash_crc(uint32_t image_start, uint32_t image_size)
 
 uint8_t boot_check_image(void)
 {
-	uint8_t ret = 0;
+    uint8_t ret = 0;
 
     memcpy_P(image_header, (void *)IMAGE_HEADER_ADDRESS, sizeof(image_header_t));
     uint32_t  * image_size = ((uint32_t *)&image_header[16]);
@@ -104,18 +104,19 @@ uint8_t boot_check_image(void)
 
     memcpy_P(&flash_crc, (const void *)*image_size, sizeof(uint16_t));
 
-	if(BOOT_MAGIC == *magic)
-	{
+    if(BOOT_MAGIC == *magic)
+    {
         uint16_t calc_crc = calculate_flash_crc(0, *image_size);
         if(flash_crc == calc_crc)
         {
             ret = 1;
         }
-	}
-	return ret;
+    }
+    return ret;
 }
 
-static void boot_program_page(uint32_t page, uint8_t *buf) {
+static void boot_program_page(uint32_t page, uint8_t *buf) 
+{
     uint16_t i;
     uint8_t sreg;
     uint32_t addr = page * SPM_PAGESIZE;

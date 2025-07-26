@@ -6,13 +6,13 @@
 #define CIRCULAR_BUFFER_EMPTY   -2
 
 #define CIRCULAR_BUFFER_DEFINE(name, type, size)    \
-volatile type name##_data_space[size];     		    \
-volatile circular_buffer_t name = {            	    \
-    .buffer = name##_data_space,      			    \
-    .head = 0,                      			    \
-    .tail = 0,                      			    \
-    .maxlen = size,                    			    \
-    .element_size = sizeof(type)				    \
+volatile type name##_data_space[size];              \
+volatile circular_buffer_t name = {                 \
+    .buffer = name##_data_space,                    \
+    .head = 0,                                      \
+    .tail = 0,                                      \
+    .maxlen = size,                                 \
+    .element_size = sizeof(type)                    \
 }
 
 typedef struct
