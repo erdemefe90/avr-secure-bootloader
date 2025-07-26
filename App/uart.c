@@ -135,7 +135,7 @@ int8_t uart_transmit(uart_t * const p_uart, void * const data, const uint16_t le
             while(!(p_uart->cfg.uart->UCSR_A & (1 << _UDRE)));
             p_uart->cfg.uart->U_DR = *ptr++;
         }
-        //while (!(p_uart->cfg.uart->UCSR_A & (1 << _TXC)));
+        while (!(p_uart->cfg.uart->UCSR_A & (1 << _TXC)));
         rs485(p_uart, UART_RS485_READ);
         p_uart->cfg.uart->UCSR_A |= (1 << _TXC);
         p_uart->data.status &= ~(1 << UART_STATUS_TX_BUSY);
