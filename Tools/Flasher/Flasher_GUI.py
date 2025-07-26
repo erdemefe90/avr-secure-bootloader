@@ -178,3 +178,13 @@ class Ui_Dialog(object):
         self.lb_file_size.setText(_translate("Dialog", "TextLabel"))
         self.btn_key.setText(_translate("Dialog", "Browse"))
         self.btn_img.setText(_translate("Dialog", "Browse"))
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    Dialog = QtWidgets.QDialog()
+    ui = Ui_Dialog()
+    ui.setupUi(Dialog)
+    Dialog.show()
+    sys.exit(app.exec_())
