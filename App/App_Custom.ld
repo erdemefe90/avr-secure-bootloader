@@ -88,11 +88,11 @@ SECTIONS
   {
     *(.vectors)
     KEEP(*(.vectors))
-      /* Yeni image_header alanı - sabit 88 byte */
+      /* Yeni image_header alanı - sabit 56 byte */
     . = ALIGN(2);
     __image_header_start = .;
     KEEP(*(.image_header))
-    . = __image_header_start + 88;
+    . = __image_header_start + 56;
     __image_header_end = .;
     /* For data that needs to reside in the lower 64k of progmem.  */
      *(.progmem.gcc*)
@@ -174,9 +174,8 @@ SECTIONS
   }  > text
   .shared_memory 0x800100 (NOLOAD) : 
     {
-      KEEP(*(.shared_memory))
       PROVIDE(__shared_memory_start = .);
-      . = . + 8;
+      KEEP(*(.shared_memory))
       PROVIDE(__shared_memory_end = .);
     } > data
   .data          :

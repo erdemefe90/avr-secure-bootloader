@@ -168,9 +168,8 @@ SECTIONS
   }  > text
   .shared_memory 0x800100 (NOLOAD) : 
     {
-      KEEP(*(.shared_memory))
       PROVIDE(__shared_memory_start = .);
-      . = . + 8;
+      KEEP(*(.shared_memory))
       PROVIDE(__shared_memory_end = .);
     } > data
   .data          :

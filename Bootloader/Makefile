@@ -27,7 +27,7 @@ PROGRAMMER = usbasp
 CHIP = m328p
 
 # Flags
-CFLAGS = -mmcu=$(MCU) -DF_CPU=$(F_CPU) $(INCLUDES) -std=gnu99 -Wall -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -funsigned-char -funsigned-bitfields -Os -g3
+CFLAGS = -mmcu=$(MCU) -DF_CPU=$(F_CPU) $(INCLUDES) -std=gnu99 -Wall -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -funsigned-char -funsigned-bitfields -Os -g3 -mrelax
 LDFLAGS = -mmcu=$(MCU) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map -Wl,--start-group -Wl,-lm -Wl,--end-group -Wl,--gc-sections -Wl,-section-start=.text=0x7000 -Wl,-section-start=.data=0x800108 -Wl,-T$(LD_SCRIPT)
 
 # Default target
@@ -44,7 +44,7 @@ $(BUILD_DIR)/$(TARGET).elf: $(OBJ)
 	$(CC) $(OBJ) $(LDFLAGS) -o $@
 	$(OBJCOPY) -O ihex -R .eeprom $@ $(BUILD_DIR)/$(TARGET).hex
 	$(OBJDUMP) -d $@ > $(BUILD_DIR)/$(TARGET).lst
-	$(SIZE) -C $@
+	$(SIZE) --format=avr --mcu=$(MCU) $@
 	@echo "Build finished."
 
 # Compile each .c into .o (using matching full path)

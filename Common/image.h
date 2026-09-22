@@ -30,10 +30,10 @@ typedef struct
     const uint32_t image_size;      // 4
     const char compile_date[12];    // 12
     const char compile_time[9];     // 9
-    const char avr_gcc_version[6];  // 6
-    uint8_t reserved[39];
+    char avr_gcc_version[6];  // 6
+    uint8_t reserved[7];
     uint16_t crc;                   // 2
-} image_header_t;                   // 88
+} image_header_t;                   // 56
 
 typedef struct
 {

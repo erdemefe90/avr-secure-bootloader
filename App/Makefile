@@ -44,7 +44,7 @@ $(BUILD_DIR)/$(TARGET).elf: $(OBJ)
 	$(CC) $(OBJ) $(LDFLAGS) -o $@
 	$(OBJCOPY) -O ihex -R .eeprom $@ $(BUILD_DIR)/$(TARGET).hex
 	$(OBJDUMP) -d $@ > $(BUILD_DIR)/$(TARGET).lst
-	$(SIZE) -C $@
+	$(SIZE) --format=avr --mcu=$(MCU) $@
 
 # Compile each .c into .o (using matching full path)
 define COMPILE_template
