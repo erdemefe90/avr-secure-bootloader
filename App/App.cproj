@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="14.0">
   <PropertyGroup>
     <SchemaVersion>2.0</SchemaVersion>
@@ -98,12 +98,7 @@
             <Value>libm</Value>
           </ListValues>
         </avrgcc.linker.libraries.Libraries>
-        <avrgcc.linker.memorysettings.Sram>
-          <ListValues>
-            <Value>.data=0x108</Value>
-          </ListValues>
-        </avrgcc.linker.memorysettings.Sram>
-        <avrgcc.linker.miscellaneous.LinkerFlags>-Wl,-T"../App_Custom.ld"</avrgcc.linker.miscellaneous.LinkerFlags>
+        <avrgcc.linker.miscellaneous.LinkerFlags>-Wl,--gc-sections,--relax -Wl,-section-start=.data=0x800102 -Wl,-T"../App_Custom.ld"</avrgcc.linker.miscellaneous.LinkerFlags>
         <avrgcc.assembler.general.IncludePaths>
           <ListValues>
             <Value>%24(PackRepoDir)\Atmel\ATmega_DFP\2.2.509\include\</Value>
@@ -111,7 +106,7 @@
         </avrgcc.assembler.general.IncludePaths>
       </AvrGcc>
     </ToolchainSettings>
-    <PostBuildEvent>python "$(SolutionDir)Tools\encrypt_image.py" -f "$(OutputDirectory)\$(OutputFileName).hex" -k "$(SolutionDir)Tools\public_key.pem"</PostBuildEvent>
+    <PostBuildEvent>python "$(SolutionDir)Tools\ensure_keys.py" "$(SolutionDir).local" &amp;&amp; python "$(SolutionDir)Tools\encrypt_image.py" -f "$(OutputDirectory)\$(OutputFileName).hex" --device-key "$(SolutionDir).local\device_key.hex" --signing-key "$(SolutionDir).local\signing_private.pem"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <ToolchainSettings>
@@ -146,12 +141,7 @@
             <Value>libm</Value>
           </ListValues>
         </avrgcc.linker.libraries.Libraries>
-        <avrgcc.linker.memorysettings.Sram>
-          <ListValues>
-            <Value>.data=0x108</Value>
-          </ListValues>
-        </avrgcc.linker.memorysettings.Sram>
-        <avrgcc.linker.miscellaneous.LinkerFlags>-Wl,-T"../App_Custom.ld"</avrgcc.linker.miscellaneous.LinkerFlags>
+        <avrgcc.linker.miscellaneous.LinkerFlags>-Wl,--gc-sections,--relax -Wl,-section-start=.data=0x800102 -Wl,-T"../App_Custom.ld"</avrgcc.linker.miscellaneous.LinkerFlags>
         <avrgcc.assembler.general.IncludePaths>
           <ListValues>
             <Value>%24(PackRepoDir)\Atmel\ATmega_DFP\2.2.509\include\</Value>
@@ -160,16 +150,13 @@
         <avrgcc.assembler.debugging.DebugLevel>Default (-Wa,-g)</avrgcc.assembler.debugging.DebugLevel>
       </AvrGcc>
     </ToolchainSettings>
-    <PostBuildEvent>python "$(SolutionDir)Tools\encrypt_image.py" -f "$(OutputDirectory)\$(OutputFileName).hex" -k "$(SolutionDir)Tools\public_key.pem"</PostBuildEvent>
+    <PostBuildEvent>python "$(SolutionDir)Tools\ensure_keys.py" "$(SolutionDir).local" &amp;&amp; python "$(SolutionDir)Tools\encrypt_image.py" -f "$(OutputDirectory)\$(OutputFileName).hex" --device-key "$(SolutionDir).local\device_key.hex" --signing-key "$(SolutionDir).local\signing_private.pem"</PostBuildEvent>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="app_main.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="circular_buffer.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="gpio.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="timer.c">

@@ -65,36 +65,6 @@ int circular_buffer_pop(volatile circular_buffer_t *c, void * data)
 }
 
 /**
- * @brief This function returns address where next data will be written in next push operation
- * 
- * @param c Pointer to the circular buffer structure
- * @param data Pointer to the address where next push operation will write to 
- * @return int CIRCULAR_SUCCESS if successful, CIRCULAR_BUFFER_FULL if buffer is full
- */
-int circular_buffer_push_fast(volatile circular_buffer_t *c, void ** data)
-{
-    int ret = CIRCULAR_SUCCESS;
-    int next;
-
-    next = c->head + 1; // next is where head will point to after this write.
-    if (next >= c->maxlen)
-    {
-        next = 0;
-    }
-
-    if (next == c->tail) // if the head + 1 == tail, circular buffer is full
-    {
-        ret = CIRCULAR_BUFFER_FULL;
-    }
-    else
-    {
-        *data = (uint8_t *)c->buffer + (c->head * c->element_size);
-        c->head = next; // head to next data offset.
-    }
-    return ret;
-}
-
-/**
  * @brief This function drops all the data in the buffer
  * 
  * @param c Pointer to the circular buffer structure
@@ -132,7 +102,7 @@ int circular_buffer_get_data_count(volatile circular_buffer_t *c)
         if (next == c->tail)
         {
             /* Checking if buffer is full */
-            data_count = c->maxlen;
+            data_count = c->maxlen - 1;
         }
         else
         {       

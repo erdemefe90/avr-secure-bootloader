@@ -1,13 +1,16 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <util/atomic.h>
 #include <stdint.h>
 #include "timer.h"
 
 static volatile uint32_t tick = 0;
 
-volatile uint32_t get_tick(void)
+uint32_t get_tick(void)
 {
-    return tick;
+    uint32_t value;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { value = tick; }
+    return value;
 }
 
 ISR(TIMER0_COMPA_vect)

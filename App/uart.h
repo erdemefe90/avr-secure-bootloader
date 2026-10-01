@@ -35,7 +35,7 @@ typedef enum
 
 typedef void (*fp_rs485)(uart_rs485_rw_t rw);
 typedef void (*fp_rx_callback)(uint8_t * buffer, uint16_t rx_length);
-typedef volatile uint32_t (*fp_get_tick)(void);
+typedef uint32_t (*fp_get_tick)(void);
 
 typedef struct
 {
@@ -67,7 +67,7 @@ int8_t uart_transmit(uart_t * const p_uart, void * const data, const uint16_t le
 void uart_tx_cpt_isr(uart_t * const p_uart);
 void uart_tx_isr(uart_t * const p_uart);
 void uart_rx_isr(uart_t * const p_uart);
-volatile uint32_t uart_get_last_rcv_tick(uart_t * const p_uart);
+uint32_t uart_get_last_rcv_tick(uart_t * const p_uart);
 uint16_t uart_get_available_bytes(uart_t * const p_uart);
 uint16_t uart_read_byte(uart_t * const p_uart, void * const c, const uint16_t length);
 #endif /* UART_H_ */

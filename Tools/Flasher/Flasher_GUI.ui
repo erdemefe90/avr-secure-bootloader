@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <ui version="4.0">
  <class>Dialog</class>
  <widget class="QDialog" name="Dialog">
@@ -10,7 +10,7 @@
     <x>0</x>
     <y>0</y>
     <width>380</width>
-    <height>508</height>
+    <height>558</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -66,7 +66,7 @@
     </rect>
    </property>
    <property name="text">
-    <string>Private_Key</string>
+    <string>Trusted key</string>
    </property>
   </widget>
   <widget class="QLabel" name="label_3">
@@ -134,39 +134,13 @@
     <string>Force</string>
    </property>
   </widget>
-  <widget class="QComboBox" name="cb_baudrate">
-   <property name="geometry">
-    <rect>
-     <x>70</x>
-     <y>50</y>
-     <width>81</width>
-     <height>23</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QLabel" name="label_4">
-   <property name="geometry">
-    <rect>
-     <x>10</x>
-     <y>50</y>
-     <width>61</width>
-     <height>16</height>
-    </rect>
-   </property>
-   <property name="frameShape">
-    <enum>QFrame::NoFrame</enum>
-   </property>
-   <property name="text">
-    <string>Baudrate</string>
-   </property>
-  </widget>
   <widget class="QGroupBox" name="gb_device">
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>260</y>
+     <y>290</y>
      <width>251</width>
-     <height>121</height>
+     <height>141</height>
     </rect>
    </property>
    <property name="title">
@@ -198,7 +172,7 @@
      <string>HW_Version:</string>
     </property>
    </widget>
-   <widget class="QLabel" name="label_7">
+   <widget class="QLabel" name="label_8">
     <property name="geometry">
      <rect>
       <x>10</x>
@@ -208,20 +182,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Compiler Ver:</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="label_8">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>80</y>
-      <width>91</width>
-      <height>16</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Compile Time:</string>
+     <string>Compiler:</string>
     </property>
    </widget>
    <widget class="QLabel" name="lb_dev_sw">
@@ -250,24 +211,11 @@
      <string>TextLabel</string>
     </property>
    </widget>
-   <widget class="QLabel" name="lb_dev_compiler_ver">
+   <widget class="QLabel" name="lb_dev_compiler">
     <property name="geometry">
      <rect>
       <x>100</x>
       <y>60</y>
-      <width>100</width>
-      <height>15</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>TextLabel</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="lb_dev_compile_time">
-    <property name="geometry">
-     <rect>
-      <x>100</x>
-      <y>80</y>
       <width>141</width>
       <height>16</height>
      </rect>
@@ -280,7 +228,59 @@
     <property name="geometry">
      <rect>
       <x>10</x>
+      <y>80</y>
+      <width>91</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Compiled:</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="lb_dev_compile_time">
+    <property name="geometry">
+     <rect>
+      <x>100</x>
+      <y>80</y>
+      <width>141</width>
+      <height>15</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>TextLabel</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_dev_auth">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
       <y>100</y>
+      <width>91</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Auth:</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="lb_dev_auth">
+    <property name="geometry">
+     <rect>
+      <x>100</x>
+      <y>100</y>
+      <width>141</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>TextLabel</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_dev_size">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>120</y>
       <width>91</width>
       <height>16</height>
      </rect>
@@ -293,9 +293,9 @@
     <property name="geometry">
      <rect>
       <x>100</x>
-      <y>100</y>
-      <width>100</width>
-      <height>15</height>
+      <y>120</y>
+      <width>141</width>
+      <height>16</height>
      </rect>
     </property>
     <property name="text">
@@ -309,7 +309,7 @@
      <x>10</x>
      <y>140</y>
      <width>251</width>
-     <height>121</height>
+     <height>141</height>
     </rect>
    </property>
    <property name="title">
@@ -319,26 +319,13 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>80</y>
-      <width>91</width>
-      <height>16</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Compile Time:</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="label_13">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
       <y>60</y>
       <width>91</width>
       <height>16</height>
      </rect>
     </property>
     <property name="text">
-     <string>Compiler Ver:</string>
+     <string>Compiler:</string>
     </property>
    </widget>
    <widget class="QLabel" name="label_14">
@@ -380,11 +367,11 @@
      <string>TextLabel</string>
     </property>
    </widget>
-   <widget class="QLabel" name="lb_file_compile_time">
+   <widget class="QLabel" name="lb_file_compiler">
     <property name="geometry">
      <rect>
       <x>100</x>
-      <y>80</y>
+      <y>60</y>
       <width>141</width>
       <height>16</height>
      </rect>
@@ -406,12 +393,25 @@
      <string>TextLabel</string>
     </property>
    </widget>
-   <widget class="QLabel" name="lb_file_compiler_ver">
+   <widget class="QLabel" name="label_10">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>80</y>
+      <width>91</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Compiled:</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="lb_file_compile_time">
     <property name="geometry">
      <rect>
       <x>100</x>
-      <y>60</y>
-      <width>100</width>
+      <y>80</y>
+      <width>141</width>
       <height>15</height>
      </rect>
     </property>
@@ -419,11 +419,37 @@
      <string>TextLabel</string>
     </property>
    </widget>
-   <widget class="QLabel" name="label_10">
+   <widget class="QLabel" name="label_file_auth">
     <property name="geometry">
      <rect>
       <x>10</x>
       <y>100</y>
+      <width>91</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Auth:</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="lb_file_auth">
+    <property name="geometry">
+     <rect>
+      <x>100</x>
+      <y>100</y>
+      <width>141</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>TextLabel</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_file_size">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>120</y>
       <width>91</width>
       <height>16</height>
      </rect>
@@ -436,9 +462,9 @@
     <property name="geometry">
      <rect>
       <x>100</x>
-      <y>100</y>
-      <width>100</width>
-      <height>15</height>
+      <y>120</y>
+      <width>141</width>
+      <height>16</height>
      </rect>
     </property>
     <property name="text">
@@ -504,13 +530,13 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>390</y>
+     <y>440</y>
      <width>360</width>
      <height>111</height>
     </rect>
    </property>
   </widget>
  </widget>
- <resources/>
- <connections/>
+ <resources />
+ <connections />
 </ui>

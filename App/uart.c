@@ -154,14 +154,20 @@ int8_t uart_transmit(uart_t * const p_uart, void * const data, const uint16_t le
     return ret;
 }
 
-volatile uint32_t uart_get_last_rcv_tick(uart_t * const p_uart)
+uint32_t uart_get_last_rcv_tick(uart_t * const p_uart)
 {
-    return p_uart->data.last_char_time;
+    uint32_t value;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { value = p_uart->data.last_char_time; }
+    return value;
 }
 
 uint16_t uart_get_available_bytes(uart_t * const p_uart)
 {
-    return circular_buffer_get_data_count(p_uart->data.rx_buffer);
+    uint16_t count;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        count = circular_buffer_get_data_count(p_uart->data.rx_buffer);
+    }
+    return count;
 }
 
 uint16_t uart_read_byte(uart_t * const p_uart, void * const c, const uint16_t length)
@@ -174,15 +180,10 @@ uint16_t uart_read_byte(uart_t * const p_uart, void * const c, const uint16_t le
     if((length <= rx_bytes) && (NULL != c))
     {
         uint8_t * ptr = c;
-        for(uint16_t i = 0; i < length; i++)
-        {
-            if(CIRCULAR_SUCCESS == circular_buffer_pop(p_uart->data.rx_buffer, ptr++))
-            {
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            for (uint16_t i = 0; i < length; i++) {
+                if (CIRCULAR_SUCCESS != circular_buffer_pop(p_uart->data.rx_buffer, ptr++)) break;
                 ret++;
-            }
-            else
-            {
-                break;
             }
         }
     }

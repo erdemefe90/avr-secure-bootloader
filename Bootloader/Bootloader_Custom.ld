@@ -5,10 +5,10 @@
    notice and this notice are preserved.  */
 OUTPUT_FORMAT("elf32-avr","elf32-avr","elf32-avr")
 OUTPUT_ARCH(avr:5)
-__TEXT_REGION_ORIGIN__ = DEFINED(__TEXT_REGION_ORIGIN__) ? __TEXT_REGION_ORIGIN__ : 0;
-__DATA_REGION_ORIGIN__ = DEFINED(__DATA_REGION_ORIGIN__) ? __DATA_REGION_ORIGIN__ : 0x800060;
-__TEXT_REGION_LENGTH__ = DEFINED(__TEXT_REGION_LENGTH__) ? __TEXT_REGION_LENGTH__ : 128K;
-__DATA_REGION_LENGTH__ = DEFINED(__DATA_REGION_LENGTH__) ? __DATA_REGION_LENGTH__ : 0xffa0;
+__TEXT_REGION_ORIGIN__ = 0x7000;
+__DATA_REGION_ORIGIN__ = 0x800100;
+__TEXT_REGION_LENGTH__ = 0x1000;
+__DATA_REGION_LENGTH__ = 0x800;
 __EEPROM_REGION_LENGTH__ = DEFINED(__EEPROM_REGION_LENGTH__) ? __EEPROM_REGION_LENGTH__ : 64K;
 __FUSE_REGION_LENGTH__ = DEFINED(__FUSE_REGION_LENGTH__) ? __FUSE_REGION_LENGTH__ : 1K;
 __LOCK_REGION_LENGTH__ = DEFINED(__LOCK_REGION_LENGTH__) ? __LOCK_REGION_LENGTH__ : 1K;
@@ -84,7 +84,7 @@ SECTIONS
   .rel.plt       : { *(.rel.plt)		}
   .rela.plt      : { *(.rela.plt)		}
   /* Internal text space or external memory.  */
-  .text   :
+  .text 0x7000 :
   {
     *(.vectors)
     KEEP(*(.vectors))
@@ -168,11 +168,14 @@ SECTIONS
   }  > text
   .shared_memory 0x800100 (NOLOAD) : 
     {
-      PROVIDE(__shared_memory_start = .);
+      __shared_memory_start = .;
       KEEP(*(.shared_memory))
-      PROVIDE(__shared_memory_end = .);
+      __shared_memory_actual_end = .;
+      ASSERT(. - __shared_memory_start <= 2, "shared_memory exceeds 2 bytes");
+      . = __shared_memory_start + 2;
+      __shared_memory_end = .;
     } > data
-  .data          :
+  .data 0x800102 :
   {
      PROVIDE (__data_start = .) ;
     *(.data)
@@ -269,3 +272,10 @@ SECTIONS
   /* DWARF Extension.  */
   .debug_macro    0 : { *(.debug_macro) }
 }
+ASSERT(__shared_memory_end == 0x800102, "shared RAM layout changed")
+ASSERT(__shared_memory_actual_end - __shared_memory_start == 2, "shared RAM object missing or wrong size")
+ASSERT((__shared_memory_start & 1) == 0, "shared RAM is not aligned")
+ASSERT(ADDR(.text) == 0x7000, "boot start is not 0x7000")
+ASSERT(ADDR(.data) == 0x800102, "data overlaps shared RAM")
+ASSERT(LOADADDR(.data) + SIZEOF(.data) <= 0x8000, "bootloader exceeds 4 KiB")
+ASSERT(_end <= 0x800900, "bootloader exceeds SRAM")

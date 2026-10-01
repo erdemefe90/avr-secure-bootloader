@@ -1,65 +1,31 @@
-# Project settings
-TARGET = Bootloader
-MCU = atmega328p
-F_CPU = 16000000UL
-LD_SCRIPT = Bootloader_Custom.ld
-BUILD_DIR = Release
+BOOT_BUILD := $(ROOT)/Bootloader/Release
+BOOT_OBJECTS := $(BOOT_BUILD)/bootloader.o $(BOOT_BUILD)/aes.o $(BOOT_BUILD)/crc.o
+BOOT_CFLAGS := -mmcu=atmega328p -DF_CPU=16000000UL -DCBC=0 -DCTR=0 -DECB=1 -I$(ROOT)/Common -I$(ROOT)/Bootloader/tiny-AES-c -I$(BOOT_BUILD) -std=gnu99 -Os -flto -Wall -Wextra -ffunction-sections -fdata-sections -MMD -MP
+BOOT_LDFLAGS := -mmcu=atmega328p -flto -Wl,--gc-sections,--relax -Wl,-Map=$(BOOT_BUILD)/Bootloader.map -Wl,-section-start=.data=0x800102 -Wl,-T$(ROOT)/Bootloader/Bootloader_Custom.ld
 
-SRC = \
-    boot_main.c \
-    bootloader.c \
-    uart.c \
-    tiny-AES-c/aes.c \
-    ../Common/crc.c
+.PHONY: bootloader
+bootloader: $(BOOT_BUILD)/Bootloader.hex
 
-INCLUDES = \
-    -I../Common \
-    -I./tiny-AES-c
+$(BOOT_BUILD)/device_key.h: $(DEVICE_KEY_FILE) $(ROOT)/Tools/key_header.py
+	@mkdir -p $(BOOT_BUILD)
+	$(PYTHON) $(ROOT)/Tools/key_header.py $< $@
 
-# Tools
-CC = avr-gcc
-OBJCOPY = avr-objcopy
-OBJDUMP = avr-objdump
-SIZE = avr-size
-AVRDUDE = avrdude
+$(BOOT_BUILD)/bootloader.o: $(ROOT)/Bootloader/bootloader.c $(BOOT_BUILD)/device_key.h
+	$(AVR_CC) $(BOOT_CFLAGS) -c $< -o $@
 
-PROGRAMMER = usbasp
-CHIP = m328p
+$(BOOT_BUILD)/aes.o: $(ROOT)/Bootloader/tiny-AES-c/aes.c
+	@mkdir -p $(BOOT_BUILD)
+	$(AVR_CC) $(BOOT_CFLAGS) -c $< -o $@
 
-# Flags
-CFLAGS = -mmcu=$(MCU) -DF_CPU=$(F_CPU) $(INCLUDES) -std=gnu99 -Wall -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -funsigned-char -funsigned-bitfields -Os -g3 -mrelax
-LDFLAGS = -mmcu=$(MCU) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map -Wl,--start-group -Wl,-lm -Wl,--end-group -Wl,--gc-sections -Wl,-section-start=.text=0x7000 -Wl,-section-start=.data=0x800108 -Wl,-T$(LD_SCRIPT)
+$(BOOT_BUILD)/crc.o: $(ROOT)/Bootloader/crc.c
+	@mkdir -p $(BOOT_BUILD)
+	$(AVR_CC) $(BOOT_CFLAGS) -c $< -o $@
 
-# Default target
-default: all
+$(BOOT_BUILD)/Bootloader.elf: $(BOOT_OBJECTS) $(ROOT)/Bootloader/Bootloader_Custom.ld
+	$(AVR_CC) $(BOOT_OBJECTS) $(BOOT_LDFLAGS) -o $@
+	$(AVR_SIZE) -A $@
 
-all: $(BUILD_DIR)/$(TARGET).elf
+$(BOOT_BUILD)/Bootloader.hex: $(BOOT_BUILD)/Bootloader.elf
+	$(AVR_OBJCOPY) -O ihex -R .eeprom $< $@
 
-# Flattened object file list
-OBJ := $(patsubst %.c,$(BUILD_DIR)/%.o,$(notdir $(SRC)))
-
-# Build ELF from objects
-$(BUILD_DIR)/$(TARGET).elf: $(OBJ)
-	@mkdir -p $(BUILD_DIR)
-	$(CC) $(OBJ) $(LDFLAGS) -o $@
-	$(OBJCOPY) -O ihex -R .eeprom $@ $(BUILD_DIR)/$(TARGET).hex
-	$(OBJDUMP) -d $@ > $(BUILD_DIR)/$(TARGET).lst
-	$(SIZE) --format=avr --mcu=$(MCU) $@
-	@echo "Build finished."
-
-# Compile each .c into .o (using matching full path)
-define COMPILE_template
-$(BUILD_DIR)/$(notdir $(1:.c=.o)): $(1)
-	@mkdir -p $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $$< -o $$@
-endef
-
-$(foreach src,$(SRC),$(eval $(call COMPILE_template,$(src))))
-
-clean:
-	rm -rf $(BUILD_DIR)
-
-flash:
-	$(AVRDUDE) -c $(PROGRAMMER) -p $(CHIP) -D -U flash:w:$(BUILD_DIR)/$(TARGET).hex
-
-.PHONY: clean all flash
+-include $(BOOT_OBJECTS:.o=.d)

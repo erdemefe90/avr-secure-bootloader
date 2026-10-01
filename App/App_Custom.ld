@@ -5,10 +5,10 @@
    notice and this notice are preserved.  */
 OUTPUT_FORMAT("elf32-avr","elf32-avr","elf32-avr")
 OUTPUT_ARCH(avr:5)
-__TEXT_REGION_ORIGIN__ = DEFINED(__TEXT_REGION_ORIGIN__) ? __TEXT_REGION_ORIGIN__ : 0;
-__DATA_REGION_ORIGIN__ = DEFINED(__DATA_REGION_ORIGIN__) ? __DATA_REGION_ORIGIN__ : 0x800060;
-__TEXT_REGION_LENGTH__ = DEFINED(__TEXT_REGION_LENGTH__) ? __TEXT_REGION_LENGTH__ : 128K;
-__DATA_REGION_LENGTH__ = DEFINED(__DATA_REGION_LENGTH__) ? __DATA_REGION_LENGTH__ : 0xffa0;
+__TEXT_REGION_ORIGIN__ = 0;
+__DATA_REGION_ORIGIN__ = 0x800100;
+__TEXT_REGION_LENGTH__ = 0x7000;
+__DATA_REGION_LENGTH__ = 0x800;
 __EEPROM_REGION_LENGTH__ = DEFINED(__EEPROM_REGION_LENGTH__) ? __EEPROM_REGION_LENGTH__ : 64K;
 __FUSE_REGION_LENGTH__ = DEFINED(__FUSE_REGION_LENGTH__) ? __FUSE_REGION_LENGTH__ : 1K;
 __LOCK_REGION_LENGTH__ = DEFINED(__LOCK_REGION_LENGTH__) ? __LOCK_REGION_LENGTH__ : 1K;
@@ -84,15 +84,17 @@ SECTIONS
   .rel.plt       : { *(.rel.plt)		}
   .rela.plt      : { *(.rela.plt)		}
   /* Internal text space or external memory.  */
-  .text   :
+  .text 0 :
   {
     *(.vectors)
     KEEP(*(.vectors))
-      /* Yeni image_header alanı - sabit 56 byte */
-    . = ALIGN(2);
+      /* ATmega328P has 26 four-byte interrupt vectors. */
+    . = 0x100;
     __image_header_start = .;
     KEEP(*(.image_header))
-    . = __image_header_start + 56;
+    KEEP(*(.image_header.*))
+    __image_header_actual_end = .;
+    . = __image_header_start + 68;
     __image_header_end = .;
     /* For data that needs to reside in the lower 64k of progmem.  */
      *(.progmem.gcc*)
@@ -174,11 +176,14 @@ SECTIONS
   }  > text
   .shared_memory 0x800100 (NOLOAD) : 
     {
-      PROVIDE(__shared_memory_start = .);
+      __shared_memory_start = .;
       KEEP(*(.shared_memory))
-      PROVIDE(__shared_memory_end = .);
+      __shared_memory_actual_end = .;
+      ASSERT(. - __shared_memory_start <= 2, "shared_memory exceeds 2 bytes");
+      . = __shared_memory_start + 2;
+      __shared_memory_end = .;
     } > data
-  .data          :
+  .data 0x800102 :
   {
      PROVIDE (__data_start = .) ;
     *(.data)
@@ -275,3 +280,12 @@ SECTIONS
   /* DWARF Extension.  */
   .debug_macro    0 : { *(.debug_macro) }
 }
+ASSERT(__image_header_start == 0x100, "image header address changed")
+ASSERT(__image_header_actual_end - __image_header_start == 68, "image header missing or wrong size")
+ASSERT(__image_header_end - __image_header_start == 68, "image header size changed")
+ASSERT(__shared_memory_end == 0x800102, "shared RAM layout changed")
+ASSERT(__shared_memory_actual_end - __shared_memory_start == 2, "shared RAM object missing or wrong size")
+ASSERT((__shared_memory_start & 1) == 0, "shared RAM is not aligned")
+ASSERT(ADDR(.data) == 0x800102, "data overlaps shared RAM")
+ASSERT(LOADADDR(.data) + SIZEOF(.data) <= 0x7000, "application exceeds 28 KiB")
+ASSERT(_end <= 0x800900, "application exceeds SRAM")

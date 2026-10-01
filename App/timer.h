@@ -1,7 +1,7 @@
 #ifndef TIMER_H_
 #define TIMER_H_
 
-volatile uint32_t get_tick(void);
+uint32_t get_tick(void);
 void timer0_init(void);
 
 #define TIMER_COUNTER                              get_tick()

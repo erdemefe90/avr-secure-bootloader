@@ -1,0 +1,4 @@
+cryptography>=45,<49
+intelhex>=2.3,<3
+pyserial>=3.5,<4
+PyQt5>=5.15.11,<6

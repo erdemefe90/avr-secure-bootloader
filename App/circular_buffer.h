@@ -26,7 +26,6 @@ typedef struct
 
 int circular_buffer_push(volatile circular_buffer_t *c, void * data);
 int circular_buffer_pop(volatile circular_buffer_t *c, void * data);
-int circular_buffer_push_fast(volatile circular_buffer_t *c, void ** data);
 void circular_buffer_purge(volatile circular_buffer_t *c);
 int circular_buffer_get_data_count(volatile circular_buffer_t *c);
 

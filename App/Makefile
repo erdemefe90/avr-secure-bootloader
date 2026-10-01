@@ -1,69 +1,21 @@
-# Project settings
-TARGET = App
-MCU = atmega328p
-F_CPU = 16000000UL
-LD_SCRIPT = App_Custom.ld
-BUILD_DIR = Release
+APP_BUILD := $(ROOT)/App/Release
+APP_SOURCES := app_main circular_buffer timer uart
+APP_OBJECTS := $(addprefix $(APP_BUILD)/,$(addsuffix .o,$(APP_SOURCES)))
+APP_CFLAGS := -mmcu=atmega328p -DF_CPU=16000000UL -I$(ROOT)/Common -std=gnu99 -Os -flto -Wall -Wextra -ffunction-sections -fdata-sections -MMD -MP
+APP_LDFLAGS := -mmcu=atmega328p -flto -Wl,--gc-sections,--relax -Wl,-Map=$(APP_BUILD)/App.map -Wl,-section-start=.data=0x800102 -Wl,-T$(ROOT)/App/App_Custom.ld
 
-SRC = \
-    app_main.c \
-    circular_buffer.c \
-    gpio.c \
-	timer.c \
-	uart.c \
-    ../Common/crc.c
+.PHONY: app
+app: $(APP_BUILD)/App.hex
 
-INCLUDES = \
-    -I../Common \
+$(APP_BUILD)/%.o: $(ROOT)/App/%.c
+	@mkdir -p $(APP_BUILD)
+	$(AVR_CC) $(APP_CFLAGS) -c $< -o $@
 
-# Tools
-CC = avr-gcc
-OBJCOPY = avr-objcopy
-OBJDUMP = avr-objdump
-SIZE = avr-size
-PYTHON = python3
+$(APP_BUILD)/App.elf: $(APP_OBJECTS) $(ROOT)/App/App_Custom.ld
+	$(AVR_CC) $(APP_OBJECTS) $(APP_LDFLAGS) -o $@
+	$(AVR_SIZE) -A $@
 
-PUBLIC_KEY = ../Tools/public_key.pem
-ENCRYPT_SCRIPT = ../Tools/encrypt_image.py
+$(APP_BUILD)/App.hex: $(APP_BUILD)/App.elf
+	$(AVR_OBJCOPY) -O ihex -R .eeprom $< $@
 
-# Flags
-CFLAGS = -mmcu=$(MCU) -DF_CPU=$(F_CPU) $(INCLUDES) -std=gnu99 -Wall -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -funsigned-char -funsigned-bitfields -Og -g2 -DNDEBUG
-LDFLAGS = -mmcu=$(MCU) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map -Wl,--start-group -Wl,-lm -Wl,--end-group -Wl,--gc-sections -Wl,-section-start=.data=0x800108 -Wl,-T$(LD_SCRIPT)
-
-# Default target
-default: all
-
-all: $(BUILD_DIR)/$(TARGET).elf postbuild
-
-# Flattened object file list
-OBJ := $(patsubst %.c,$(BUILD_DIR)/%.o,$(notdir $(SRC)))
-
-# Build ELF from objects
-$(BUILD_DIR)/$(TARGET).elf: $(OBJ)
-	@mkdir -p $(BUILD_DIR)
-	$(CC) $(OBJ) $(LDFLAGS) -o $@
-	$(OBJCOPY) -O ihex -R .eeprom $@ $(BUILD_DIR)/$(TARGET).hex
-	$(OBJDUMP) -d $@ > $(BUILD_DIR)/$(TARGET).lst
-	$(SIZE) --format=avr --mcu=$(MCU) $@
-
-# Compile each .c into .o (using matching full path)
-define COMPILE_template
-$(BUILD_DIR)/$(notdir $(1:.c=.o)): $(1)
-	@mkdir -p $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $$< -o $$@
-endef
-
-$(foreach src,$(SRC),$(eval $(call COMPILE_template,$(src))))
-
-clean:
-	rm -rf $(BUILD_DIR)
-
-postbuild:
-	$(PYTHON) $(ENCRYPT_SCRIPT) -f $(BUILD_DIR)/$(TARGET).hex -k $(PUBLIC_KEY)
-	@echo "Build finished."
-
-.PHONY: all clean postbuild
-
-
-
-
+-include $(APP_OBJECTS:.o=.d)
