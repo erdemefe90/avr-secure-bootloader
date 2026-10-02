@@ -2,6 +2,8 @@
 
 Turkish documentation: [README-TR.md](README-TR.md)
 
+Contributor and coding-agent guide: [AGENTS.md](AGENTS.md)
+
 This repository contains a 4 KB bootloader for the ATmega328P, a sample application, and a PyQt5 flasher that communicates over RS485. When the sample application receives `BOOT\n`, it writes `0xabcd` to the 16-bit `boot_key` in `.shared_memory` and enters the bootloader through a watchdog reset. Both programs use a fixed **115200 baud** rate. The shared RAM area has no baud-rate field.
 
 ## Setup and build

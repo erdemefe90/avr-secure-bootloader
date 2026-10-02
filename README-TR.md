@@ -2,6 +2,8 @@
 
 İngilizce dokümantasyon: [README.md](README.md)
 
+Katkı ve coding-agent çalışma rehberi: [AGENTS.md](AGENTS.md)
+
 Bu depo ATmega328P için 4 KB bootloader, örnek uygulama ve RS485 üzerinden çalışan PyQt5 flasher içerir. Örnek uygulama `BOOT\n` aldığında `.shared_memory` içindeki 16 bitlik `boot_key` alanına `0xabcd` yazar ve watchdog resetiyle bootloader'a geçer. Uygulama ve bootloader sabit **115200 baud** kullanır. Paylaşılan RAM alanında baud bilgisi bulunmaz.
 
 ## Kurulum ve derleme
