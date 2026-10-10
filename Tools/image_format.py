@@ -1,4 +1,4 @@
-"""Version 2 signed AVR image format shared by packager and flasher."""
+"""Version 3 signed AVR image format shared by packager and flasher."""
 
 from __future__ import annotations
 
@@ -10,14 +10,14 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import cmac, serialization
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-MAGIC = b"AVR2"
+MAGIC = b"AVR3"
 IMAGE_MAGIC = 0xEFEFEFEF
 HW_ID = 0x0301
 BOOT_START = 0x7000
 PAGE_SIZE = 128
 HEADER_OFFSET = 0x100
 TAG_OFFSET = 52
-HEADER_FORMAT = "<IHBBBHH12s9s6s12s16s"
+HEADER_FORMAT = "<IHBBBH12s9s6sH12s16s"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 SIGNATURE_SIZE = 64
 WIRE_PAGE_SIZE = PAGE_SIZE + 16
@@ -31,10 +31,10 @@ class Header:
     sw_minor: int
     sw_revision: int
     build: int
-    image_size: int
     compile_date: bytes
     compile_time: bytes
     avr_gcc_version: bytes
+    image_size: int
     nonce: bytes
     tag: bytes
 
@@ -52,9 +52,9 @@ class Header:
     def to_bytes(self) -> bytes:
         return struct.pack(HEADER_FORMAT, self.magic, self.hw_id,
                            self.sw_major, self.sw_minor, self.sw_revision,
-                           self.build, self.image_size, self.compile_date,
+                           self.build, self.compile_date,
                            self.compile_time, self.avr_gcc_version,
-                           self.nonce, self.tag)
+                           self.image_size, self.nonce, self.tag)
 
     @property
     def version(self) -> str:
@@ -120,17 +120,17 @@ def prepare_image(hex_image: bytes, root: bytes, nonce: bytes | None = None) -> 
         raise ValueError("nonce must be 12 bytes")
     header = Header(original.magic, original.hw_id,
                     original.sw_major, original.sw_minor, original.sw_revision,
-                    original.build, len(padded), original.compile_date,
+                    original.build, original.compile_date,
                     original.compile_time, original.avr_gcc_version,
-                    nonce, b"\x00" * 16)
+                    len(padded), nonce, b"\x00" * 16)
     padded[HEADER_OFFSET:HEADER_OFFSET + HEADER_SIZE] = header.to_bytes()
     _, mac_key = derive_keys(root)
     tag = cmac_tag(mac_key, b"I" + bytes(padded))
     header = Header(header.magic, header.hw_id,
                     header.sw_major, header.sw_minor, header.sw_revision,
-                    header.build, header.image_size, header.compile_date,
+                    header.build, header.compile_date,
                     header.compile_time, header.avr_gcc_version,
-                    header.nonce, tag)
+                    header.image_size, header.nonce, tag)
     padded[HEADER_OFFSET:HEADER_OFFSET + HEADER_SIZE] = header.to_bytes()
     return bytes(padded), header
 

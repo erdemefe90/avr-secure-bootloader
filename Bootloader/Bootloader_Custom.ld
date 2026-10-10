@@ -7,7 +7,7 @@ OUTPUT_FORMAT("elf32-avr","elf32-avr","elf32-avr")
 OUTPUT_ARCH(avr:5)
 __TEXT_REGION_ORIGIN__ = 0x7000;
 __DATA_REGION_ORIGIN__ = 0x800100;
-__TEXT_REGION_LENGTH__ = 0x1000;
+__TEXT_REGION_LENGTH__ = 0x0f60;
 __DATA_REGION_LENGTH__ = 0x800;
 __EEPROM_REGION_LENGTH__ = DEFINED(__EEPROM_REGION_LENGTH__) ? __EEPROM_REGION_LENGTH__ : 64K;
 __FUSE_REGION_LENGTH__ = DEFINED(__FUSE_REGION_LENGTH__) ? __FUSE_REGION_LENGTH__ : 1K;
@@ -17,6 +17,9 @@ __USER_SIGNATURE_REGION_LENGTH__ = DEFINED(__USER_SIGNATURE_REGION_LENGTH__) ? _
 MEMORY
 {
   text   (rx)   : ORIGIN = __TEXT_REGION_ORIGIN__, LENGTH = __TEXT_REGION_LENGTH__
+  boot_info (r) : ORIGIN = 0x7f60, LENGTH = 26
+  /* Entire last page is reserved for manufacturing serial provisioning. */
+  serial (r)    : ORIGIN = 0x7f80, LENGTH = 128
   data   (rw!x) : ORIGIN = __DATA_REGION_ORIGIN__, LENGTH = __DATA_REGION_LENGTH__
   eeprom (rw!x) : ORIGIN = 0x810000, LENGTH = __EEPROM_REGION_LENGTH__
   fuse      (rw!x) : ORIGIN = 0x820000, LENGTH = __FUSE_REGION_LENGTH__
@@ -166,6 +169,16 @@ SECTIONS
     KEEP (*(.fini0))
      _etext = . ;
   }  > text
+  .boot_info 0x7f60 :
+  {
+    KEEP(*(.boot_info))
+    KEEP(*(.boot_info.*))
+  } > boot_info
+  .serial_number 0x7ff0 :
+  {
+    KEEP(*(.serial_number))
+    KEEP(*(.serial_number.*))
+  } > serial
   .shared_memory 0x800100 (NOLOAD) : 
     {
       __shared_memory_start = .;
@@ -278,4 +291,10 @@ ASSERT((__shared_memory_start & 1) == 0, "shared RAM is not aligned")
 ASSERT(ADDR(.text) == 0x7000, "boot start is not 0x7000")
 ASSERT(ADDR(.data) == 0x800102, "data overlaps shared RAM")
 ASSERT(LOADADDR(.data) + SIZEOF(.data) <= 0x8000, "bootloader exceeds 4 KiB")
+ASSERT(LOADADDR(.data) + SIZEOF(.data) <= 0x7f60, "bootloader code/data overlaps metadata")
+ASSERT(ADDR(.boot_info) == 0x7f60 && SIZEOF(.boot_info) == 26, "boot info missing or wrong layout")
+ASSERT(ADDR(.serial_number) == 0x7ff0 && SIZEOF(.serial_number) == 16, "serial number missing or wrong layout")
+ASSERT(ADDR(.boot_info) + SIZEOF(.boot_info) <= 0x7f80, "boot info overlaps serial page")
+ASSERT(ADDR(.serial_number) + SIZEOF(.serial_number) == 0x8000, "serial number exceeds flash")
+ASSERT(SIZEOF(.text) + SIZEOF(.data) + SIZEOF(.boot_info) + SIZEOF(.serial_number) <= 4096, "bootloader loaded bytes exceed 4 KiB")
 ASSERT(_end <= 0x800900, "bootloader exceeds SRAM")

@@ -16,8 +16,8 @@ class PackageTests(unittest.TestCase):
         self.verifier = self.signer.public_key()
         raw = bytearray(b"\xff" * 373)
         header = struct.pack(HEADER_FORMAT, IMAGE_MAGIC, HW_ID,
-                             1, 2, 3, 123, 0,
-                             b"Sep 28 2026\0", b"12:34:56\0", b"5.4.0\0",
+                             1, 2, 3, 123,
+                             b"Sep 28 2026\0", b"12:34:56\0", b"5.4.0\0", 0,
                              b"\x00" * 12, b"\x00" * 16)
         raw[HEADER_OFFSET:HEADER_OFFSET + HEADER_SIZE] = header
         self.image, self.header = prepare_image(bytes(raw), self.root, b"0123456789ab")
@@ -43,6 +43,20 @@ class PackageTests(unittest.TestCase):
     def test_wrong_device_key_rejected_after_signature(self):
         with self.assertRaises(ValueError):
             verify_and_decrypt(self.package, self.verifier, b"x" * 16)
+
+    def test_header_offsets_and_legacy_package_rejection(self):
+        raw = self.header.to_bytes()
+        self.assertEqual(len(raw), 68)
+        self.assertEqual(raw[6:11], struct.pack("<BBBH", 1, 2, 3, 123))
+        self.assertEqual(raw[11:23], b"Sep 28 2026\0")
+        self.assertEqual(raw[23:32], b"12:34:56\0")
+        self.assertEqual(raw[32:38], b"5.4.0\0")
+        self.assertEqual(int.from_bytes(raw[38:40], "little"), len(self.image))
+        self.assertEqual(raw[40:52], b"0123456789ab")
+        self.assertEqual(raw[52:68], self.header.tag)
+        self.assertEqual(self.package[:4], b"AVR3")
+        with self.assertRaises(ValueError):
+            parse_package(b"AVR2" + self.package[4:], self.verifier)
 
 
 class ProtocolTests(unittest.TestCase):

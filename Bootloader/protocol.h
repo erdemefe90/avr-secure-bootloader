@@ -11,6 +11,18 @@
 #define CMD_ACK             0xb5u
 #define CMD_NACK            0xb6u
 #define CMD_RESET           0xb7u
+#define CMD_INFO            0xb8u
+#define CMD_LOCK            0xb9u
+#define CMD_SERIAL          0xbau
+#define SERIAL_SEQ          0xfffdu
+
+/* CMD_LOCK programs only LB2/LB1 (1 -> 0); BLB pairs remain read-only. */
+#define LOCK_APP_WRITE      0x04u
+#define LOCK_APP_READ       0x08u
+#define LOCK_BOOT_WRITE     0x10u
+#define LOCK_PROGRAM_MASK   0x03u
+#define CONTROL_SEQ         0xfffeu
+#define INFO_PAYLOAD_SIZE   (BOOT_INFO_SIZE + SERIAL_NUMBER_SIZE + 4u)
 
 #define PAGE_TAG_SIZE       16u
 #define PAGE_PAYLOAD_SIZE   (2u + IMAGE_PAGE_SIZE + PAGE_TAG_SIZE)
@@ -21,5 +33,6 @@
 #define NACK_SIZE           3u
 #define NACK_AUTH           4u
 #define NACK_IMAGE          5u
+#define NACK_LOCK           6u
 
 #endif
