@@ -31,30 +31,31 @@ Keep both documents semantically equivalent. Update this file when architectural
 - `Tools/decrypt_image.py`: verification/decryption test utility; never used in the production flash flow.
 - `Tools/write_serial.py`: standalone RS485 serial-number provisioner accepting short serial text; no Qt or firmware flashing, with readback, retries, and explicit `--replace` for existing serials.
 - `Tools/Flasher/`: PyQt5 GUI, headless `cli.py`, shared `policy.py`, serial protocol parser, retries, version lock, and mode transitions.
-- `tests/`: package, protocol, GUI, and AVR/QEMU crypto agreement tests.
+- `tests/`: package, protocol, GUI, AVR/QEMU crypto agreement and RS485 status/control transmission tests. The DE regression observes GPIO transitions with modeled GPIO/TXC; physical transceiver timing requires a hardware capture.
 - `App/*_Custom.ld` and `Bootloader/*_Custom.ld`: authoritative flash/SRAM placement and size assertions.
 - Root `Makefile`: includes the App and Bootloader build files and exposes the normal entry points.
 
 ## Ownership boundary
 
-`Common/image.h` must contain only:
+`Common/image.h` is the standalone public C integration contract supplied to external App developers. It owns:
 
-- `image_header_t`
-- `boot_info_t`
-- `shared_area_t`
-- `BOOT_KEY`
+- `image_header_t`, `boot_info_t`, `shared_area_t`
+- `IMAGE_MAGIC`, `BOOT_COMMAND`, `BOOT_UART_BAUD`, `BOOT_KEY`
+- `IMAGE_HEADER_ADDRESS`, `BOOT_START_ADDRESS`, `SHARED_AREA_ADDRESS`
 - `BOOT_INFO_ADDRESS`, `BOOT_INFO_SIZE`, `SERIAL_NUMBER_ADDRESS`, `SERIAL_NUMBER_SIZE`
+- `IMAGE_HEADER_SECTION`, `SHARED_AREA_SECTION`, and the AVR-only inline `bootloader_request()` helper
+- A self-contained application declaration example and required linker/startup/hardware integration rules
 
-The boot-info and serial-number flash byte addresses/sizes are shared so applications can read them with `memcpy_P` or `pgm_read_*`. Other flash-map constants, protocol commands, CRC helpers, application commands, and project-specific constants remain owned independently by App and Bootloader.
+App and Bootloader are independently developed projects. Neither App nor the public header may include Bootloader private headers or require Bootloader object files, generated `device_key.h`, AES sources, or secrets. Both projects consume shared contract constants from `image.h`; do not duplicate them locally. App owns its HW/SW version values and transport implementation. Binary update commands, CRC/crypto, serial-page programming details, and other private implementation constants remain owned by Bootloader/Tools. Python mirrors the binary layout and wire constants independently; it does not include C headers.
 
-App needs `image_header_t` for the flash metadata and `shared_area_t` plus `BOOT_KEY` for bootloader entry. Bootloader reads the same ABI. Python mirrors the binary header layout in `Tools/image_format.py`; it does not include C headers.
+Copying `image.h` supplies the complete C interface; it does not configure a developer's linker. The external App must implement the header's documented layout: vectors at flash zero, one retained 68-byte header at `0x0100` before other program sections, application flash loads below `0x7000`, one retained NOLOAD shared object at GNU AVR SRAM address `0x800100` of `sizeof(shared_area_t)` bytes, and normal `.data` at `0x800102`. Preserve matching linker assertions. `App/App_Custom.ld` is a reference implementation, not a dependency on bootloader sources. `bootloader_request()` disables interrupts, writes BOOT_KEY at the shared data-space address and watchdog-resets; the application detects the exact BOOT_COMMAND with its own UART/RS485 driver. No application-level ACK is required. Keep the public header free of implementation-specific App drivers. The independent-App test copies only the public C header and a reference linker configuration into an isolated project to verify this boundary.
 
 ## Hardware behavior
 
 Target: ATmega328P at 16 MHz.
 
 - UART speed is fixed at 115200 baud in both App and Bootloader.
-- RS485 half-duplex direction enable is PD2: high while transmitting, low while receiving.
+- RS485 half-duplex direction enable is PD2: high while transmitting, low while receiving. Each low-to-high DE transition includes 200 us of driven UART idle-high before the first byte, allowing a peer UART to recover if its undriven RX was low. A continuous HEADER/INFO announcement uses one guard. Physical fail-safe bias must still keep the bus/RO in the proper idle state; choose resistor values for the actual termination load and supply.
 - Hardware UART remains on PD0/RX and PD1/TX.
 - The shared RAM structure has only the 16-bit `boot_key`; there is no baud-rate field.
 - App receives the exact `BOOT\n` command, writes `BOOT_KEY` (`0xabcd`) into `.shared_memory`, and resets through the watchdog.
@@ -79,30 +80,33 @@ Target: ATmega328P at 16 MHz.
 The packed image header layout is:
 
 1. `magic`: `uint32_t`
-2. `hw_id`: `uint16_t`
-3. `sw_major`: `uint8_t`
-4. `sw_minor`: `uint8_t`
-5. `sw_revision`: `uint8_t`
-6. `build_num`: `uint16_t`
-7. `compile_date[12]`
-8. `compile_time[9]`
-9. `avr_gcc_version[6]`
-10. `image_size`: `uint16_t`
-11. `nonce[12]`
-12. `tag[16]`
+2. `hw_major`: `uint8_t`
+3. `hw_minor`: `uint8_t`
+4. `sw_major`: `uint8_t`
+5. `sw_minor`: `uint8_t`
+6. `sw_revision`: `uint8_t`
+7. `build_num`: `uint16_t`
+8. `compile_date[12]`
+9. `compile_time[9]`
+10. `avr_gcc_version[6]`
+11. `image_size`: `uint16_t`
+12. `nonce[12]`
+13. `tag[16]`
 
-Total size is 68 bytes; compile date/time begin at offsets 11/23, `image_size` at 38, and `tag` at 52. `boot_info_t` contains version bytes, `build_num`, `compile_date[12]`, and `compile_time[9]`, in that order. Its address and size, plus the serial address and size, are asserted by the bootloader linker script. The App script already excludes the entire boot region. Bootloader loaded-byte accounting includes `.boot_info` and `.serial_number` as well as `.text` and initialized `.data`. The linker scripts assert the object sizes, addresses, SRAM boundary, application boundary, and 4 KB bootloader limit. Never change one representation alone. A header change requires synchronized updates to:
+Total size is 68 bytes; hardware major/minor begin at offsets 4/5, software major at 6, and compile date/time begin at offsets 11/23, `image_size` at 38, and `tag` at 52. `boot_info_t` contains version bytes, `build_num`, `compile_date[12]`, and `compile_time[9]`, in that order. Its address and size, plus the serial address and size, are asserted by the bootloader linker script. The App script already excludes the entire boot region. Bootloader loaded-byte accounting includes `.boot_info` and `.serial_number` as well as `.text` and initialized `.data`. The linker scripts assert the object sizes, addresses, SRAM boundary, application boundary, and 4 KB bootloader limit. Never change one representation alone. A header change requires synchronized updates to:
 
 - `Common/image.h`
 - App header initializer if necessary (its designated fields need no edit for a reorder)
-- Bootloader size/offset constants and validation
+- Bootloader derived sizes/offsets and structural/security validation (never HW compatibility policy)
 - both linker scripts where applicable
 - `Tools/image_format.py`
 - GUI display/parsing
 - tests
 - both README files
 
-The current package magic is `AVR3`. Reordered headers are incompatible with `AVR2` and pre-modernization formats; rebuild and repackage App and provision the matching bootloader through ISP. Do not change App functionality just to exercise metadata reads.
+The current package magic is `AVR4`. Hardware version is major/minor (default 3.1); the C ABI and Python format `<IBBBBBH12s9s6sH12s16s` put those unsigned bytes in major/minor order. App owns HW metadata values. Package tools must not define an expected HW version or require HW compatibility: prepare, parse, verify and decrypt accept arbitrary unsigned major/minor bytes while preserving their authentication. Only the flasher compares the file and current device major/minor pair. A difference in either component is advisory: GUI shows both versions in a Yes/No warning before BEGIN (default No), and Yes permits flashing; CLI prints a stderr warning and continues without an override flag. Matching HW or an absent device header causes no HW warning. Force only affects software-version policy and must not suppress the HW popup. Keep HW out of flash_block_reason; share advisory text through hardware_warning. The bootloader must not define an expected HW ID/version, inspect HW field values, or reject images by HW; they remain authenticated opaque header bytes. Keep magic, size, alignment and CMAC checks. HW metadata-only changes do not require rebuilding the current bootloader when the layout is unchanged. Display major.minor decimal in both GUI panels; CLI JSON uses `hardware_version`, replacing `hardware_id`. AVR3 used the reverse byte order for its 16-bit hardware ID; AVR3 and older package magic values are rejected, but HW bytes must never be used to detect legacy format; rebuild and repackage App; legacy bootloaders with fixed HW checks require a one-time ISP update. AVR4 package magic is PC-side framing, not parsed by the bootloader. Do not change App functionality just to exercise metadata reads.
+
+Production C must derive data-dependent sizes with `sizeof(type/object)`, field offsets with `offsetof`, flash page size with AVR `SPM_PAGESIZE`, and crypto block/key sizes from the upstream AES header. Do not duplicate header/page/tag sizes as numeric macros. `Bootloader/protocol.h` owns `info_payload_t` and derives INFO/PAGE payload lengths from its types and device definitions. Keep explicit address/ABI assertions where they define the linker and Python wire contract; do not replace independent expected-layout tests with self-derived expectations. Python uses `struct.calcsize` for header size/tag offset and a target page-size constant verified against AVR behavior.
 
 ## Security model
 
@@ -113,7 +117,7 @@ Two verification levels are intentional:
 
 The application image uses AES-CTR. CRC16 protects RS485 frames against transmission corruption and is not an authenticity mechanism. The AVR must not perform RSA or Ed25519 operations.
 
-The package begins with the clear `AVR3` package magic and contains a clear copy of the image header so the GUI can display metadata before flashing. This package magic is separate from `image_header_t` and is used for package framing/version selection.
+The package begins with the clear `AVR4` package magic and contains a clear copy of the image header so the GUI can display metadata before flashing. This package magic is separate from `image_header_t` and is used for package framing/version selection.
 
 Key rules:
 
@@ -122,7 +126,7 @@ Key rules:
 - Production keys stay outside the repository.
 - Historical tracked AES/RSA keys are compromised and must not be reused.
 - `Tools/decrypt_image.py` is for testing only.
-- The GUI's Force option bypasses only its same/older-version policy. It must never bypass signature, hardware ID, CMAC, or protocol validation.
+- The GUI's Force option bypasses only its same/older-version policy. It must never bypass signature, CMAC, protocol validation or physical locks. HW differences are advisory and use their own GUI warning even with Force enabled.
 
 ## Serial update protocol
 
@@ -134,7 +138,7 @@ The Python side is in `Tools/Flasher/protocol.py`; the AVR side is in `Bootloade
 - The GUI retries timed-out requests.
 - Bootloader accepts the immediately repeated page without rewriting flash, allowing recovery from a lost ACK.
 - Bootloader briefly accepts a repeated FINISH when its ACK was lost.
-- RS485 direction must return to receive only after the final UART bit has left the transmitter.
+- RS485 direction must return to receive only after the final UART bit has left the transmitter. `send_status()` pairs HEADER and INFO under one continuous PD2 DE assertion, including INFO preparation; `send_packet(CMD_HEADER, ...)` deliberately keeps DE high and must only be used in that pair. Each newly asserted DE gets the 200 us idle-high guard, never an extra guard between HEADER and INFO. INFO and ACK/NACK release DE after TXC, including standalone INFO requests. Preserve the complete initial HEADER/INFO wait in host tools; packet/CRC layouts are unchanged. `program_page()` performs the shared 128-byte readback and returns 0 or NACK_IMAGE; both App page updates and serial provisioning must handle failure without ACK or advancing the sequence.
 
 - `CMD_INFO` (`0xb8`) reports 26-byte boot metadata, 16-byte serial, then low/high/extended fuse and lock bytes (46 bytes total); sent on entry, while idle, and on request.
 - `CMD_LOCK` (`0xb9`) accepts one nonzero mask limited to LB2/LB1 bits 1..0 (`0x03`). Mask bits set to 1 program their physical bit to 0. Reject every BLB/reserved bit and a resulting LB2/LB1=01. ACK/NACK uses sequence `0xfffe`; `NACK_LOCK` is 6. Active transfers and FINISH grace reject locking. Read back physical bits before ACK; repeated masks are idempotent. Preserve BLB0/BLB1 and keep their physical status display. LB2/LB1 are SPM-programmable on ATmega328P (datasheet section 27.8.7; automotive edition 26.8.7). Do not restore BLB writing through this protocol.
@@ -149,7 +153,7 @@ Preserve retry idempotency when changing commands or state transitions.
 
 - The GUI uses PyQt5 and opens serial ports at 115200 baud.
 - Trusted key Browse accepts only Ed25519 public-key PEM files. Changing the key revalidates the selected package.
-- File and device panels show software version, hardware ID, compiler version, compile date/time, authentication state, and image size.
+- File and device panels show software version, hardware version, compiler version, compile date/time, authentication state, and image size.
 - Go Bootloader sends `BOOT\n` and waits for a bootloader header before confirming the transition.
 - Go Application sends the reset command, clears cached bootloader/device information, and reports only that application startup was requested. Do not inspect application banners or require any application output. Keep the App example unchanged. Bootloader entry still requires a header/INFO response; CLI and serial writer listen for 0.5 seconds before sending `BOOT\n` once if no header is detected. Applications must implement that entry command or enter bootloader mode externally.
 - Same or older firmware is disabled unless Force is selected. Flash also requires current device information with application read/write permissions; Force cannot override hardware locks. Clear status on disconnect or an application-start request.
@@ -229,6 +233,8 @@ python Tools/write_serial.py --port COM5 --serial "DEVICE-002" --replace --timeo
 - Every standalone Python tool supports `--help`. `image_format.py`, `policy.py`, `protocol.py`, and generated `Flasher_GUI.py` are support modules with no standalone CLI. Flasher stdout is JSON, stderr is progress/errors; exit codes 0/1/2 mean success/runtime/arguments.
 - Existing build commands are listed above. `make all` uses avr-gcc, avr-objcopy, avr-size and both custom linker scripts; `make test` uses unittest and the AVR/QEMU agreement harness. For production builds use `make all DEVICE_KEY_FILE=/secure/device_key.hex SIGNING_KEY_FILE=/secure/signing_private.pem`; pass the corresponding public PEM to the flasher. Production key creation: `openssl rand -hex 16 > /secure/device_key.hex`, `openssl genpkey -algorithm ED25519 -out /secure/signing_private.pem`, `openssl pkey -in /secure/signing_private.pem -pubout -out /secure/signing_public.pem`; restrict private file permissions (`chmod 600` on Linux). Never execute these examples against existing production keys without an explicit provisioning task.
 
+`device_key.h` generation: Make runs `Tools/key_header.py $(DEVICE_KEY_FILE) Bootloader/Release/device_key.h`; default source is `.local/device_key.hex`. `Tools/ensure_keys.py` creates missing development source keys once, never rotates existing keys. Cleaning build output regenerates the header from the same source key. Studio Debug/Release PreBuildEvent runs ensure_keys/key_header and places the header under its configuration directory. `DEVICE_KEY_BYTES` is embedded as the bootloader's PROGMEM device key; it must match the packager's device key and contains no Ed25519 signing key. Never print generated header contents.
+
 ## Required verification
 
 For changes that affect code, format, protocol, linker layout, crypto, or build configuration:
@@ -247,5 +253,5 @@ Do not broaden tests without a concrete risk. Preserve the AVR/QEMU agreement te
 - ATmega328P has no second application bank. Power loss during an authenticated update can leave the old application partially erased. The bootloader must reject the invalid image and remain ready for another transfer.
 - GUI version locking is not device-enforced anti-rollback.
 - Physical access, fuse/lock misconfiguration, signing-key compromise, or device-key extraction are outside the software-only guarantee.
-- `AVR3` requires the matching bootloader; migration from `AVR2` or older formats requires ISP programming.
+- `AVR4` requires the matching bootloader; migration from AVR3 or older formats requires ISP programming.
 - Hardware locks only transition from 1 to 0; unlocking requires ISP chip erase and reprovisioning firmware, keys, and serial. BLB12 must remain unprogrammed for App to read boot metadata; it cannot protect the embedded key from application-side LPM while leaving these reads available.

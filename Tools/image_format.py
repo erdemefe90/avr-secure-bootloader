@@ -1,4 +1,4 @@
-"""Version 3 signed AVR image format shared by packager and flasher."""
+"""Version 4 signed AVR image format shared by packager and flasher."""
 
 from __future__ import annotations
 
@@ -10,14 +10,14 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import cmac, serialization
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-MAGIC = b"AVR3"
+MAGIC = b"AVR4"
 IMAGE_MAGIC = 0xEFEFEFEF
-HW_ID = 0x0301
 BOOT_START = 0x7000
 PAGE_SIZE = 128
 HEADER_OFFSET = 0x100
-TAG_OFFSET = 52
-HEADER_FORMAT = "<IHBBBH12s9s6sH12s16s"
+_HEADER_PREFIX_FORMAT = "<IBBBBBH12s9s6sH12s"
+TAG_OFFSET = struct.calcsize(_HEADER_PREFIX_FORMAT)
+HEADER_FORMAT = _HEADER_PREFIX_FORMAT + "16s"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 SIGNATURE_SIZE = 64
 WIRE_PAGE_SIZE = PAGE_SIZE + 16
@@ -26,7 +26,8 @@ WIRE_PAGE_SIZE = PAGE_SIZE + 16
 @dataclass(frozen=True)
 class Header:
     magic: int
-    hw_id: int
+    hw_major: int
+    hw_minor: int
     sw_major: int
     sw_minor: int
     sw_revision: int
@@ -43,14 +44,14 @@ class Header:
         if len(raw) != HEADER_SIZE:
             raise ValueError("invalid image header length")
         header = cls(*struct.unpack(HEADER_FORMAT, raw))
-        if (header.magic != IMAGE_MAGIC or header.hw_id != HW_ID or
+        if (header.magic != IMAGE_MAGIC or
                 header.image_size < HEADER_OFFSET + PAGE_SIZE or
                 header.image_size > BOOT_START or header.image_size % PAGE_SIZE):
-            raise ValueError("invalid image header or hardware ID")
+            raise ValueError("invalid image header")
         return header
 
     def to_bytes(self) -> bytes:
-        return struct.pack(HEADER_FORMAT, self.magic, self.hw_id,
+        return struct.pack(HEADER_FORMAT, self.magic, self.hw_major, self.hw_minor,
                            self.sw_major, self.sw_minor, self.sw_revision,
                            self.build, self.compile_date,
                            self.compile_time, self.avr_gcc_version,
@@ -59,6 +60,10 @@ class Header:
     @property
     def version(self) -> str:
         return f"{self.sw_major}.{self.sw_minor}.{self.sw_revision}+{self.build}"
+
+    @property
+    def hardware_version(self) -> str:
+        return f"{self.hw_major}.{self.hw_minor}"
 
     @staticmethod
     def _text(value: bytes) -> str:
@@ -113,12 +118,12 @@ def prepare_image(hex_image: bytes, root: bytes, nonce: bytes | None = None) -> 
         raise ValueError("application image exceeds boot boundary")
     raw = bytes(padded[HEADER_OFFSET:HEADER_OFFSET + HEADER_SIZE])
     original = Header(*struct.unpack(HEADER_FORMAT, raw))
-    if original.magic != IMAGE_MAGIC or original.hw_id != HW_ID:
+    if original.magic != IMAGE_MAGIC:
         raise ValueError("application header is invalid")
     nonce = nonce if nonce is not None else os.urandom(12)
     if len(nonce) != 12:
         raise ValueError("nonce must be 12 bytes")
-    header = Header(original.magic, original.hw_id,
+    header = Header(original.magic, original.hw_major, original.hw_minor,
                     original.sw_major, original.sw_minor, original.sw_revision,
                     original.build, original.compile_date,
                     original.compile_time, original.avr_gcc_version,
@@ -126,7 +131,7 @@ def prepare_image(hex_image: bytes, root: bytes, nonce: bytes | None = None) -> 
     padded[HEADER_OFFSET:HEADER_OFFSET + HEADER_SIZE] = header.to_bytes()
     _, mac_key = derive_keys(root)
     tag = cmac_tag(mac_key, b"I" + bytes(padded))
-    header = Header(header.magic, header.hw_id,
+    header = Header(header.magic, header.hw_major, header.hw_minor,
                     header.sw_major, header.sw_minor, header.sw_revision,
                     header.build, header.compile_date,
                     header.compile_time, header.avr_gcc_version,

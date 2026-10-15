@@ -17,7 +17,7 @@ from Tools.Flasher.protocol import (CMD_ACK, CMD_BEGIN, CMD_FINISH, CMD_HEADER,
                                     CMD_NACK, CMD_PAGE, CMD_RESET, NACK_AUTH,
                                     NACK_PACKET, Packet, encode)
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from Tools.image_format import HEADER_FORMAT, HEADER_OFFSET, HEADER_SIZE, IMAGE_MAGIC, HW_ID
+from Tools.image_format import HEADER_FORMAT, HEADER_OFFSET, HEADER_SIZE, IMAGE_MAGIC
 import struct
 import tempfile
 from dataclasses import replace
@@ -57,7 +57,7 @@ class FlasherGuiTests(unittest.TestCase):
     def setUp(self):
         raw = bytearray(b"\xff" * 390)
         raw[HEADER_OFFSET:HEADER_OFFSET + HEADER_SIZE] = struct.pack(
-            HEADER_FORMAT, IMAGE_MAGIC, HW_ID, 1, 0, 2, 122,
+            HEADER_FORMAT, IMAGE_MAGIC, 3, 1, 1, 0, 2, 122,
             b"Sep 28 2026\0", b"12:34:56\0", b"5.4.0\0", 0,
             b"\x00" * 12, b"\x00" * 16)
         root = bytes(range(16))
@@ -80,6 +80,61 @@ class FlasherGuiTests(unittest.TestCase):
 
     def tearDown(self):
         self.window.close()
+
+    def test_hardware_version_is_major_minor_in_both_panels(self):
+        self.window.show_header(self.header, file=True)
+        self.window.show_header(self.header, file=False)
+        self.assertEqual(self.window.ui.lb_file_hw.text(), "3.1")
+        self.assertEqual(self.window.ui.lb_dev_hw.text(), "3.1")
+
+    def test_hardware_mismatch_warns_before_begin_and_can_be_cancelled_or_accepted(self):
+        from main import QMessageBox
+        for field in ("hw_major", "hw_minor"):
+            with self.subTest(field=field):
+                self.fake.writes.clear()
+                device = replace(self.header, build=self.header.build - 1,
+                                 **{field: getattr(self.header, field) + 1})
+                self.window.handle_packet(Packet(CMD_HEADER, device.to_bytes()))
+                self.assertEqual(self.window.device_header.hardware_version, device.hardware_version)
+                self.assertTrue(self.window.ui.btn_flash.isEnabled())
+                with patch("main.QMessageBox.warning", return_value=QMessageBox.No) as popup:
+                    self.window.start_flash()
+                self.assertEqual(self.fake.writes, [])
+                self.assertFalse(self.window.flashing)
+                self.assertIsNone(self.window.pending)
+                self.assertIn(self.header.hardware_version, popup.call_args.args[2])
+                self.assertIn(device.hardware_version, popup.call_args.args[2])
+                self.assertEqual(popup.call_args.args[4], QMessageBox.No)
+                with patch("main.QMessageBox.warning", return_value=QMessageBox.Yes):
+                    self.window.start_flash()
+                self.assertEqual(self.fake.writes[-1][1], CMD_BEGIN)
+                self.window.fail_flash("Test transfer stopped")
+
+    def test_matching_or_unknown_hardware_needs_no_popup(self):
+        for device in (None, replace(self.header, build=self.header.build - 1)):
+            with self.subTest(device=device):
+                self.window.device_header = device
+                self.window.update_flash_button()
+                with patch("main.QMessageBox.warning") as popup:
+                    self.window.start_flash()
+                popup.assert_not_called()
+                self.assertEqual(self.fake.writes[-1][1], CMD_BEGIN)
+                self.window.fail_flash("Test transfer stopped")
+
+    def test_force_keeps_hardware_warning_and_popup_rechecks_device_permissions(self):
+        from main import QMessageBox
+        self.window.device_header = replace(self.header, hw_major=255)
+        self.window.ui.radioButton.setChecked(True)
+        self.window.update_flash_button()
+        def lose_write_permission(*args):
+            self.window.device_info = replace(self.window.device_info, lock_bits=0xfb)
+            self.window.update_flash_button()
+            return QMessageBox.Yes
+        with patch("main.QMessageBox.warning", side_effect=lose_write_permission) as popup:
+            self.window.start_flash()
+        popup.assert_called_once()
+        self.assertFalse(self.window.flashing)
+        self.assertEqual(self.fake.writes, [])
 
     def test_retry_duplicate_ack_and_finish(self):
         self.window.start_flash()

@@ -30,7 +30,7 @@ if sys.platform == "win32":
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from image_format import HEADER_SIZE, Header, load_verifier
-from policy import verified_package, flash_block_reason, version_tuple as firmware_version
+from policy import verified_package, flash_block_reason, hardware_warning, version_tuple as firmware_version
 from Flasher_GUI import Ui_Dialog
 from protocol import (CMD_ACK, CMD_BEGIN, CMD_FINISH, CMD_HEADER, CMD_NACK,
                       CMD_PAGE, CMD_RESET, CMD_INFO, CMD_LOCK, CONTROL_SEQ,
@@ -127,7 +127,7 @@ class MyFlasherApp(QDialog):
         prefix = "file" if file else "dev"
         values = {
             "sw": header.version if header else "—",
-            "hw": f"0x{header.hw_id:04x}" if header else "—",
+            "hw": header.hardware_version if header else "—",
             "compiler": header.compiler if header else "—",
             "compile_time": header.compiled if header else "—",
             "auth": "Signed" if file and header else "CMAC" if header else "—",
@@ -377,6 +377,17 @@ class MyFlasherApp(QDialog):
     def start_flash(self):
         if not self.ui.btn_flash.isEnabled():
             return
+        warning = hardware_warning(self.file_header, self.device_header)
+        if warning:
+            answer = QMessageBox.warning(
+                self, "Hardware version warning",
+                f"{warning}\n\nContinue flashing?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if answer != QMessageBox.Yes:
+                return
+            # Serial polling continues while the modal dialog is open.
+            if not self.ui.btn_flash.isEnabled():
+                return
         self.flashing = True
         self.page_index = 0
         self.update_flash_button()

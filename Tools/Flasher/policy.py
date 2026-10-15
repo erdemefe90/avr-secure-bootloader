@@ -19,11 +19,17 @@ def verified_package(path, trusted_key):
     return parse_package(path.read_bytes(), verifier)
 
 
+def hardware_warning(header, device_header):
+    if (device_header is not None and
+            (header.hw_major, header.hw_minor) != (device_header.hw_major, device_header.hw_minor)):
+        return (f"Hardware version differs: firmware {header.hardware_version}, "
+                f"device {device_header.hardware_version}.")
+    return None
+
+
 def flash_block_reason(header, device_header, info, force=False):
     if info is None:
         return "Current bootloader information is required"
-    if device_header is not None and header.hw_id != device_header.hw_id:
-        return "Hardware ID does not match the device"
     if not info.application_writable:
         return "BLB0 blocks application writes"
     if not info.application_readable:

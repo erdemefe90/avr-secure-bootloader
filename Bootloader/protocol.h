@@ -1,6 +1,7 @@
 #ifndef PROTOCOL_H_
 #define PROTOCOL_H_
 
+#include <avr/boot.h>
 #include "image.h"
 
 #define STX                 0xaau
@@ -22,10 +23,19 @@
 #define LOCK_BOOT_WRITE     0x10u
 #define LOCK_PROGRAM_MASK   0x03u
 #define CONTROL_SEQ         0xfffeu
-#define INFO_PAYLOAD_SIZE   (BOOT_INFO_SIZE + SERIAL_NUMBER_SIZE + 4u)
+typedef struct __attribute__((packed)) {
+    boot_info_t boot;
+    uint8_t serial[SERIAL_NUMBER_SIZE];
+    uint8_t low_fuse;
+    uint8_t high_fuse;
+    uint8_t extended_fuse;
+    uint8_t lock_bits;
+} info_payload_t;
 
-#define PAGE_TAG_SIZE       16u
-#define PAGE_PAYLOAD_SIZE   (2u + IMAGE_PAGE_SIZE + PAGE_TAG_SIZE)
+#define INFO_PAYLOAD_SIZE   sizeof(info_payload_t)
+
+#define PAGE_TAG_SIZE       sizeof(((image_header_t *)0)->tag)
+#define PAGE_PAYLOAD_SIZE   (sizeof(uint16_t) + SPM_PAGESIZE + PAGE_TAG_SIZE)
 #define MAX_PAYLOAD_SIZE    PAGE_PAYLOAD_SIZE
 
 #define NACK_PACKET         1u

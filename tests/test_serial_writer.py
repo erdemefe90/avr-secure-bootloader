@@ -240,10 +240,10 @@ class AvrSerialTests(unittest.TestCase):
             try:
                 actual = bytearray()
                 deadline = time.monotonic() + 3
-                while len(actual) < 14 and time.monotonic() < deadline:
+                while len(actual) < 16 and time.monotonic() < deadline:
                     if select.select([qemu.stdout], [], [], 0.1)[0]:
-                        actual.extend(os.read(qemu.stdout.fileno(), 14 - len(actual)))
-                self.assertEqual(bytes(actual), b"\x01" * 14)
+                        actual.extend(os.read(qemu.stdout.fileno(), 16 - len(actual)))
+                self.assertEqual(bytes(actual), b"\x01" * 16)
             finally:
                 qemu.terminate()
                 qemu.wait(timeout=2)

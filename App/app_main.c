@@ -11,18 +11,18 @@
 #define SW_VERSION_MINOR       0
 #define SW_VERSION_REVISION    2
 #define SW_VERSION_BUILD       123
-#define IMAGE_MAGIC            0xefefefefu
-#define IMAGE_HW_ID            0x0301u
-#define BOOT_COMMAND           "BOOT\n"
+#define HW_VERSION_MAJOR       3
+#define HW_VERSION_MINOR       1
 
 CIRCULAR_BUFFER_DEFINE (uart_tx_buf, uint8_t, 64);
 CIRCULAR_BUFFER_DEFINE (uart_rx_buf, uint8_t, 64);
 
-volatile shared_area_t shared_area __attribute__((section(".shared_memory")));
-const image_header_t header __attribute__((used, section(".image_header"))) =
+volatile shared_area_t shared_area SHARED_AREA_SECTION;
+const image_header_t header IMAGE_HEADER_SECTION =
 {
     .magic = IMAGE_MAGIC,
-    .hw_id = IMAGE_HW_ID,
+    .hw_major = HW_VERSION_MAJOR,
+    .hw_minor = HW_VERSION_MINOR,
     .sw_major = SW_VERSION_MAJOR,
     .sw_minor = SW_VERSION_MINOR,
     .sw_revision = SW_VERSION_REVISION,
@@ -85,7 +85,7 @@ int main(void)
     timer0_init();
 
     shared_area.boot_key = 0;
-    uart_init(&uart, 115200);
+    uart_init(&uart, BOOT_UART_BAUD);
     
     sei();
     while (1) 
@@ -101,10 +101,7 @@ int main(void)
                 uart_read_byte(&uart, rx_buffer, sizeof(rx_buffer));
                 if (0 == memcmp(BOOT_COMMAND, rx_buffer, sizeof(rx_buffer)))
                 {
-                    shared_area.boot_key = BOOT_KEY;
-                    cli();
-                    wdt_enable(WDTO_15MS);
-                    while (1);
+                    bootloader_request();
                 }
             }
         }

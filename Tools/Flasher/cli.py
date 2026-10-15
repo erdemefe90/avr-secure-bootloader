@@ -15,15 +15,15 @@ import serial
 import serial.tools.list_ports
 
 if __package__:
-    from ..image_format import HEADER_SIZE, Header
-    from .policy import verified_package, flash_block_reason
+    from ..image_format import HEADER_SIZE, PAGE_SIZE, Header
+    from .policy import verified_package, flash_block_reason, hardware_warning
     from .protocol import (CMD_ACK, CMD_BEGIN, CMD_FINISH, CMD_HEADER, CMD_INFO, CMD_LOCK,
                            CMD_NACK, CMD_PAGE, CMD_RESET, CONTROL_SEQ, DeviceInfo,
                            NACK_PACKET, Parser, encode, lock_mode_mask, lock_mode_summary)
 else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from image_format import HEADER_SIZE, Header
-    from policy import verified_package, flash_block_reason
+    from image_format import HEADER_SIZE, PAGE_SIZE, Header
+    from policy import verified_package, flash_block_reason, hardware_warning
     from protocol import (CMD_ACK, CMD_BEGIN, CMD_FINISH, CMD_HEADER, CMD_INFO, CMD_LOCK,
                           CMD_NACK, CMD_PAGE, CMD_RESET, CONTROL_SEQ, DeviceInfo,
                           NACK_PACKET, Parser, encode, lock_mode_mask, lock_mode_summary)
@@ -66,7 +66,7 @@ class FlasherClient:
             try:
                 self.device_header = None if packet.payload == b"\0" * HEADER_SIZE else Header.from_bytes(packet.payload)
             except ValueError as exc:
-                raise FlasherError("Invalid device header or hardware ID") from exc
+                raise FlasherError("Invalid device header") from exc
             self.mode = "bootloader"
         elif packet.command == CMD_INFO:
             try:
@@ -136,8 +136,11 @@ class FlasherClient:
         reason = flash_block_reason(header, self.device_header, self.device_info, force)
         if reason:
             raise FlasherError(reason)
-        if len(pages) * 128 != header.image_size:
+        if len(pages) * PAGE_SIZE != header.image_size:
             raise FlasherError("Page count does not match the image header")
+        warning = hardware_warning(header, self.device_header)
+        if warning:
+            print(f"Warning: {warning} Continuing flash.", file=sys.stderr)
         self.request(CMD_BEGIN, header.to_bytes(), 0xffff)
         for index, (ciphertext, tag) in enumerate(pages):
             self.request(CMD_PAGE, index.to_bytes(2, "little") + ciphertext + tag, index)
@@ -162,7 +165,7 @@ def device_summary(client):
     result = {"mode": client.mode}
     if client.device_header:
         result["application_version"] = client.device_header.version
-        result["hardware_id"] = f"0x{client.device_header.hw_id:04X}"
+        result["hardware_version"] = client.device_header.hardware_version
     info = client.device_info
     if info:
         result.update({
@@ -218,7 +221,7 @@ def main(argv=None):
                 header, pages = verified_package(args.file, args.key)
             if args.command == "verify":
                 result = {"signature": "verified", "version": header.version,
-                          "image_size": header.image_size, "hardware_id": f"0x{header.hw_id:04X}"}
+                          "image_size": header.image_size, "hardware_version": header.hardware_version}
             else:
                 with serial.Serial(args.port, 115200, timeout=0.05, write_timeout=0.5) as port:
                     client = FlasherClient(port, args.timeout)

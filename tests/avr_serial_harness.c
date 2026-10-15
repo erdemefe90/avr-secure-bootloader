@@ -7,6 +7,7 @@
 #include <avr/pgmspace.h>
 
 static uint8_t flash_page[128], simulated_locks = 0xff;
+static uint16_t flash_base = 0x7f80;
 static uint8_t erase_count, outside_page, corrupt_write;
 static uint8_t lock_count, ignore_lock_write;
 
@@ -18,8 +19,8 @@ static void lock_program(uint8_t mask)
 
 static uint8_t flash_read(uint16_t addr)
 {
-    if (addr < 0x7f80 || addr >= 0x8000) { outside_page = 1; return 0; }
-    return flash_page[addr - 0x7f80];
+    if (addr < flash_base || addr >= flash_base + 128) { outside_page = 1; return 0; }
+    return flash_page[addr - flash_base];
 }
 
 static int flash_compare(const void *ram, const void *flash, size_t len)
@@ -39,21 +40,21 @@ static void *flash_copy(void *ram, const void *flash, size_t len)
 
 static void flash_erase(uint16_t addr)
 {
-    if (addr != 0x7f80) outside_page = 1;
+    if (addr != flash_base) outside_page = 1;
     ++erase_count;
     memset(flash_page, 0xff, sizeof(flash_page));
 }
 
 static void flash_fill(uint16_t addr, uint16_t value)
 {
-    if (addr < 0x7f80 || addr >= 0x7fff) { outside_page = 1; return; }
-    flash_page[addr - 0x7f80] = value;
-    flash_page[addr - 0x7f80 + 1] = value >> 8;
+    if (addr < flash_base || addr >= flash_base + 127) { outside_page = 1; return; }
+    flash_page[addr - flash_base] = value;
+    flash_page[addr - flash_base + 1] = value >> 8;
 }
 
 static void flash_write(uint16_t addr)
 {
-    if (addr != 0x7f80) outside_page = 1;
+    if (addr != flash_base) outside_page = 1;
     if (corrupt_write) flash_page[127] ^= 1;
 }
 
@@ -89,7 +90,7 @@ static void request(uint8_t old_byte, uint8_t new_byte)
 
 int main(void)
 {
-    uint8_t results[14];
+    uint8_t results[16];
     for (uint8_t i = 0; i < 112; ++i) flash_page[i] = i ^ 0x5a;
     memset(flash_page + 112, 0xff, 16);
     request(0xff, 0x23);
@@ -148,6 +149,20 @@ int main(void)
     results[13] = write_locks(1) == NACK_LOCK && simulated_locks == 0xff;
     ignore_lock_write = 0;
     results[13] &= write_locks(1) == 0 && simulated_locks == 0xfe;
+    /* Shared readback must also check first, header and last application pages. */
+    results[14] = results[15] = 1;
+    for (uint8_t test = 0; test < 3; ++test) {
+        flash_base = test == 0 ? 0 : test == 1 ? 0x100 : 0x6f80;
+        for (uint8_t i = 0; i < 128; ++i) payload[i] = i ^ test;
+        outside_page = 0;
+        erase_count = 0;
+        corrupt_write = 0;
+        if (program_page(flash_base / 128, payload) != 0 || outside_page || erase_count != 1)
+            results[14] = 0;
+        corrupt_write = 1;
+        if (program_page(flash_base / 128, payload) != NACK_IMAGE || outside_page || erase_count != 2)
+            results[15] = 0;
+    }
     UCSR0A = (1 << U2X0);
     UBRR0 = 16;
     UCSR0B = (1 << TXEN0);
